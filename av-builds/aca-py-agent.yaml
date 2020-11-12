@@ -1,0 +1,18 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: "aca-py-agent"
+spec:
+  runPolicy: "Serial"
+  source:
+    git:
+      uri: "https://github.com/bcgov/aries-vcr"
+    contextDir: docker/vcr-agent
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: "ImageStreamTag"
+      namespace: "av-images"
+      name: "aca-py-agent:latest"

@@ -1,0 +1,364 @@
+---
+kind: Template
+apiVersion: v1
+metadata:
+  name: aca-py
+  annotations:
+    openshift.io/display-name: Aries Cloud Agent Python Template
+    description: Template for aries-cloudagent-python
+    tags: aca-py
+message: |-
+  The following service(s) have been created in your project: ${NAME}.
+  For more information about using this template, including OpenShift considerations, see https://github.com/sclorg/nginx-ex/blob/master/README.md.
+labels:
+  template: aca-py
+objects:
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: "${NAME}"
+      labels:
+        app: aca-py
+    spec:
+      selector:
+        name: "${NAME}"
+      ports:
+        - protocol: TCP
+          name: http
+          port: ${{HTTP_INTERFACE_PORT}}
+          targetPort: ${{HTTP_INTERFACE_PORT}}
+        - protocol: TCP
+          name: http-admin
+          port: ${{ADMIN_INTERFACE_PORT}}
+          targetPort: ${{ADMIN_INTERFACE_PORT}}
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-http"
+    spec:
+      host: "${NAME}.${HOST}"
+      path: /
+      to:
+        kind: Service
+        name: "${NAME}"
+      port:
+        targetPort: http
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-admin"
+    spec:
+      host: "admin.${NAME}.${HOST}"
+      path: /
+      to:
+        kind: Service
+        name: "${NAME}"
+      port:
+        targetPort: http-admin
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: "${NAME}"
+      labels:
+        name: aca-py
+    spec:
+      replicas: 1
+      selector:
+        name: "${NAME}"
+      strategy:
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "true"
+          name: "${NAME}"
+          labels:
+            app: aca-py
+            name: "${NAME}"
+        spec:
+          containers:
+            - name: "${NAME}"
+              command:
+                - bash
+                - -c
+                - $(echo aca-py start
+                  --inbound-transport http '0.0.0.0' ${HTTP_INTERFACE_PORT}
+                  --inbound-transport ws '0.0.0.0' ${WS_INTERFACE_PORT}
+                  --endpoint ${AGENT_ENDPOINT}
+                  --outbound-transport ws
+                  --outbound-transport http
+                  --genesis-url "${LEDGER_URL}/genesis"
+                  --auto-accept-invites
+                  --auto-accept-requests
+                  --auto-ping-connection
+                  --auto-respond-messages
+                  --auto-respond-credential-offer
+                  --auto-verify-presentation
+                  --wallet-type 'indy'
+                  --wallet-name "wallet"
+                  --wallet-key "${WALLET_ENCRYPTION_KEY}"
+                  --wallet-storage-type "postgres_storage"
+                  --wallet-storage-config "$(eval echo \"${WALLET_STORAGE_CONFIGURATION}\")"
+                  --wallet-storage-creds "$(eval echo \"${WALLET_STORAGE_CREDENTIALS}\")"
+                  --seed "${INDY_WALLET_SEED}"
+                  --admin '0.0.0.0' ${ADMIN_INTERFACE_PORT}
+                  $([ ! -z "${AGENT_ADMIN_API_KEY}" ] && echo "--admin-api-key ${AGENT_ADMIN_API_KEY}" || echo "--admin-insecure-mode")
+                  --label "${NAME}"
+                  --log-level warning
+                  ${TIMING:+--timing}
+                  ${READ_ONLY_LEDGER:+--read-only-ledger}
+                  --plugin indy_catalyst_issuer_registration
+                  ${TRACING:+--trace}
+                  ${TRACE_TARGET:+--trace-target ${TRACE_TARGET}}
+                  ${TRACE_TAG:+--trace-tag ${TRACE_TAG}}
+                  ${TRACE_LABEL:+--trace-label $(eval echo \"${TRACE_LABEL}\")});
+              env:
+                - name: LEDGER_URL
+                  value: http://dev.bcovrin.vonx.io
+                - name: POSTGRESQL_WALLET_HOST
+                  value: ${NAME}-wallet
+                - name: POSTGRESQL_WALLET_PORT
+                  value: ${POSTGRESQL_WALLET_PORT}
+                - name: WALLET_STORAGE_CONFIGURATION
+                  value: '{\"url\":\"${POSTGRESQL_WALLET_HOST}:${POSTGRESQL_WALLET_PORT}\",\"max_connections\":5}'
+                - name: WALLET_STORAGE_CREDENTIALS
+                  value: '{\"account\":\"${POSTGRESQL_WALLET_USER}\",\"password\":\"${POSTGRESQL_WALLET_PASSWORD}\",\"admin_account\":\"postgres\",\"admin_password\":\"${POSTGRESQL_WALLET_ADMIN_PASSWORD}\"}'
+                - name: POSTGRESQL_WALLET_USER
+                  value: ${POSTGRES_WALLET_USER}
+                - name: POSTGRESQL_WALLET_PASSWORD
+                  value: ${POSTGRES_WALLET_PASSWORD}
+                - name: POSTGRESQL_WALLET_ADMIN_PASSWORD
+                  value: ${POSTGRESQL_WALLET_ADMIN_PASSWORD}
+                - name: WALLET_ENCRYPTION_KEY
+                  value: ${WALLET_ENCRYPTION_KEY}
+                - name: INDY_WALLET_SEED
+                  value: ${INDY_WALLET_SEED}
+                - name: WALLET_DID
+                  value: ${WALLET_DID}
+                - name: WEBHOOK_URL
+                  value: ${WEBHOOK_URL}
+                - name: HTTP_INTERFACE_PORT
+                  value: ${HTTP_INTERFACE_PORT}
+                - name: WS_INTERFACE_PORT
+                  value: ${WS_INTERFACE_PORT}
+                - name: ADMIN_INTERFACE_PORT
+                  value: ${ADMIN_INTERFACE_PORT}
+                - name: AGENT_ADMIN_API_KEY
+                  value: ${AGENT_ADMIN_API_KEY}
+                - name: AGENT_ENDPOINT
+                  value: ${NAME}.${HOST}
+                - name: AGENT_ADMIN_ENDPOINT
+                  value: admin.${NAME}.${HOST}
+                - name: AGENT_LOG_LEVEL
+                  value: WARNING
+                - name: TIMING
+                  value: ""
+                - name: READ_ONLY_LEDGER
+                  value: ""
+                - name: TRACING
+                  value: ""
+                - name: TRACE_TARGET
+                  value: ""
+                - name: TRACE_TAG
+                  value: ""
+                - name: TRACE_LABEL
+                  value: "'${HOSTNAME}'"
+              image: "image-registry.openshift-image-registry.svc:5000/av-images/aca-py-agent:latest"
+              ports:
+                - containerPort: ${{HTTP_INTERFACE_PORT}}
+                  protocol: TCP
+                - containerPort: ${{ADMIN_INTERFACE_PORT}}
+                  protocol: TCP
+              readinessProbe:
+                timeoutSeconds: 30
+                initialDelaySeconds: 3
+                exec:
+                  command:
+                    - bash
+                    - "-c"
+                    - 'curl --fail "http://localhost:${ADMIN_INTERFACE_PORT}/status/ready" -H "X-API-KEY: ${AGENT_ADMIN_API_KEY}"'
+              livenessProbe:
+                timeoutSeconds: 30
+                initialDelaySeconds: 300
+                exec:
+                  command:
+                    - bash
+                    - "-c"
+                    - 'curl --fail "http://localhost:${ADMIN_INTERFACE_PORT}/status/live" -H "X-API-KEY: ${AGENT_ADMIN_API_KEY}"'
+              imagePullPolicy: IfNotPresent
+              resources:
+                limits:
+                  cpu: 750m
+                  memory: 512Mi
+                requests:
+                  cpu: 10m
+                  memory: 10Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - aca-py-agent
+            from:
+              kind: ImageStreamTag
+              namespace: "${IMAGE_NAMESPACE}"
+              name: aca-py-agent:latest
+  - kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-wallet"
+    spec:
+      storageClassName: aws-efs
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-wallet"
+    spec:
+      replicas: 1
+      test: false
+      selector:
+        name: "${NAME}-wallet"
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "true"
+          labels:
+            app: aca-py
+            name: "${NAME}-wallet"
+        spec:
+          volumes:
+            - name: "${NAME}-wallet-data"
+              persistentVolumeClaim:
+                claimName: "${NAME}-wallet"
+          containers:
+            - name: "${NAME}-wallet"
+              image: "postgres:latest"
+              ports:
+                - containerPort: ${{POSTGRESQL_WALLET_PORT}}
+                  protocol: TCP
+              env:
+                - name: POSTGRESQL_USER
+                  value: ${POSTGRESQL_USER}
+                - name: POSTGRESQL_PASSWORD
+                  value: ${POSTGRESQL_PASSWORD}
+                - name: POSTGRESQL_ADMIN_PASSWORD
+                  value: ${POSTGRESQL_ADMIN_PASSWORD}
+                - name: POSTGRESQL_DATABASE
+                  value: "wallet"
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "10Mi"
+                limits:
+                  cpu: "2000m"
+                  memory: "6000Mi"
+              volumeMounts:
+                - name: "${NAME}-wallet-data"
+                  mountPath: "/var/lib/pgsql/data"
+              terminationMessagePath: "/dev/termination-log"
+              terminationMessagePolicy: File
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities: {}
+                privileged: false
+          restartPolicy: Always
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - "${NAME}-wallet"
+            from:
+              kind: ImageStreamTag
+              namespace: "${IMAGE_NAMESPACE}"
+              name: postgres:latest
+      strategy:
+        type: Recreate
+        recreateParams:
+          timeoutSeconds: 600
+        activeDeadlineSeconds: 21600
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-wallet"
+      labels:
+        app: aca-py
+    spec:
+      selector:
+        name: "${NAME}-wallet"
+      ports:
+        - protocol: TCP
+          name: tcp
+          port: ${{POSTGRESQL_WALLET_PORT}}
+parameters:
+  - name: NAME
+    displayName: Name
+    required: true
+    generate: expression
+    from: "acapy[0-9]{6}"
+  - name: HOST
+    value: "aviary.icu"
+  - name: IMAGE_NAMESPACE
+    value: av-images
+  - name: HTTP_INTERFACE_PORT
+    value: "8000"
+  - name: ADMIN_INTERFACE_PORT
+    value: "8001"
+  - name: WS_INTERFACE_PORT
+    value: "8002"
+  - name: WALLET_ENCRYPTION_KEY
+    displayName: Wallet Encryption Key
+    description: The encryption key to be used for the wallets.  Needs to be basee64 encoded.
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+  - name: POSTGRESQL_WALLET_PORT
+    value: "5432"
+  - name: POSTGRESQL_WALLET_USER
+    value: "wallet-user"
+  - name: POSTGRESQL_WALLET_PASSWORD
+    displayName: postgres password
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9]{16}"
+  - name: POSTGRESQL_WALLET_ADMIN_PASSWORD
+    displayName: postgres admin password
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9]{16}"
+  - name: INDY_WALLET_SEED
+    displayName: Indy Wallet Seed
+    description: The Seed used for the indy wallet.  Needs to be basee64 encoded.
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+  - name: WALLET_DID
+    displayName: Indy Wallet DID
+    description: The DID associated to the indy wallet.  Needs to be basee64 encoded.
+    required: false
+    generate: expression
+    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+  - name: WEBHOOK_URL
+    value: ""
+  - name: AGENT_ADMIN_API_KEY
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
