@@ -119,19 +119,19 @@ objects:
                 - name: LEDGER_URL
                   value: http://dev.bcovrin.vonx.io
                 - name: POSTGRESQL_WALLET_HOST
-                  value: ${NAME}-wallet
+                  value: ${NAME}-db
                 - name: POSTGRESQL_WALLET_PORT
-                  value: ${POSTGRES_WALLET_PORT}
+                  value: ${POSTGRES_PORT}
                 - name: WALLET_STORAGE_CONFIGURATION
                   value: '{\"url\":\"${POSTGRESQL_WALLET_HOST}:${POSTGRESQL_WALLET_PORT}\",\"max_connections\":5}'
                 - name: WALLET_STORAGE_CREDENTIALS
                   value: '{\"account\":\"${POSTGRESQL_WALLET_USER}\",\"password\":\"${POSTGRESQL_WALLET_PASSWORD}\",\"admin_account\":\"postgres\",\"admin_password\":\"${POSTGRESQL_WALLET_ADMIN_PASSWORD}\"}'
                 - name: POSTGRESQL_WALLET_USER
-                  value: ${POSTGRES_WALLET_USER}
+                  value: ${POSTGRES_USER}
                 - name: POSTGRESQL_WALLET_PASSWORD
-                  value: ${POSTGRES_WALLET_PASSWORD}
+                  value: ${POSTGRES_PASSWORD}
                 - name: POSTGRESQL_WALLET_ADMIN_PASSWORD
-                  value: ${POSTGRES_WALLET_ADMIN_PASSWORD}
+                  value: ${POSTGRES_ADMIN_PASSWORD}
                 - name: WALLET_ENCRYPTION_KEY
                   value: ${WALLET_ENCRYPTION_KEY}
                 - name: INDY_WALLET_SEED
@@ -217,7 +217,7 @@ objects:
   - kind: PersistentVolumeClaim
     apiVersion: v1
     metadata:
-      name: "${NAME}-wallet"
+      name: "${NAME}-db"
       template: aca-py
     spec:
       storageClassName: aws-efs
@@ -229,40 +229,40 @@ objects:
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
-      name: "${NAME}-wallet"
+      name: "${NAME}-db"
       template: aca-py
     spec:
       replicas: 1
       test: false
       selector:
-        name: "${NAME}-wallet"
+        name: "${NAME}-db"
       template:
         metadata:
           annotations:
             sidecar.istio.io/inject: "true"
           labels:
             app: aca-py
-            name: "${NAME}-wallet"
+            name: "${NAME}-db"
         spec:
           volumes:
-            - name: "${NAME}-wallet-data"
+            - name: "${NAME}-db-data"
               persistentVolumeClaim:
-                claimName: "${NAME}-wallet"
+                claimName: "${NAME}-db"
           containers:
-            - name: "${NAME}-wallet"
+            - name: "${NAME}-db"
               image: "postgres:latest"
               ports:
-                - containerPort: ${{POSTGRES_WALLET_PORT}}
+                - containerPort: ${{POSTGRES_PORT}}
                   protocol: TCP
               env:
                 - name: POSTGRESQL_USER
-                  value: ${POSTGRES_WALLET_USER}
+                  value: ${POSTGRES_USER}
                 - name: POSTGRESQL_PASSWORD
-                  value: ${POSTGRES_WALLET_PASSWORD}
+                  value: ${POSTGRES_PASSWORD}
                 - name: POSTGRESQL_ADMIN_PASSWORD
-                  value: ${POSTGRES_WALLET_ADMIN_PASSWORD}
+                  value: ${POSTGRES_ADMIN_PASSWORD}
                 - name: POSTGRESQL_DATABASE
-                  value: unused
+                  value: ${POSTGRES_DB_NAME}
               resources:
                 requests:
                   cpu: "10m"
@@ -271,7 +271,7 @@ objects:
                   cpu: "2000m"
                   memory: "6000Mi"
               volumeMounts:
-                - name: "${NAME}-wallet-data"
+                - name: "${NAME}-db-data"
                   mountPath: "/var/lib/pgsql/data"
               terminationMessagePath: "/dev/termination-log"
               terminationMessagePolicy: File
@@ -310,7 +310,7 @@ objects:
           imageChangeParams:
             automatic: true
             containerNames:
-              - "${NAME}-wallet"
+              - "${NAME}-db"
             from:
               kind: ImageStreamTag
               namespace: "${IMAGE_NAMESPACE}"
@@ -323,17 +323,32 @@ objects:
   - kind: Service
     apiVersion: v1
     metadata:
-      name: "${NAME}-wallet"
+      name: "${NAME}-db"
       template: aca-py
       labels:
         app: aca-py
     spec:
       selector:
-        name: "${NAME}-wallet"
+        name: "${NAME}-db"
       ports:
         - protocol: TCP
           name: tcp
-          port: ${{POSTGRES_WALLET_PORT}}
+          port: ${{POSTGRES_PORT}}
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-db"
+      template: aca-py
+      labels:
+        app: aca-py
+    spec:
+      host: "db-${NAME}-${HOST}"
+      to:
+        kind: Service
+        name: "${NAME}-db"
+      port:
+        targetPort: tcp
+
 parameters:
   - name: NAME
     displayName: Name
@@ -356,20 +371,23 @@ parameters:
     required: true
     generate: expression
     from: "[a-zA-Z0-9]{16}"
-  - name: POSTGRES_WALLET_PORT
+  - name: POSTGRES_PORT
     value: "5432"
-  - name: POSTGRES_WALLET_USER
-    value: "wallet-user"
-  - name: POSTGRES_WALLET_PASSWORD
+  - name: POSTGRES_USER
+    value: "db-user"
+  - name: POSTGRES_PASSWORD
     displayName: postgres password
     required: true
     generate: expression
     from: "[a-zA-Z0-9]{16}"
-  - name: POSTGRES_WALLET_ADMIN_PASSWORD
+  - name: POSTGRES_ADMIN_PASSWORD
     displayName: postgres admin password
     required: true
     generate: expression
     from: "[a-zA-Z0-9]{16}"
+  - name: POSTGRES_DB_NAME
+    required: true
+    value: "av1_apis"
   - name: INDY_WALLET_SEED
     displayName: Indy Wallet Seed
     description: The Seed used for the indy wallet.  Needs to be basee64 encoded.
