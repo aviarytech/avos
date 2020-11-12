@@ -36,20 +36,20 @@ objects:
     metadata:
       name: "${NAME}-http"
     spec:
-      host: "${NAME}.${HOST}"
-      path: /
+      host: "${NAME}-${HOST}"
       to:
         kind: Service
         name: "${NAME}"
+        weight: 100
       port:
         targetPort: http
+      wildcardPolicy: None
   - kind: Route
     apiVersion: v1
     metadata:
       name: "${NAME}-admin"
     spec:
-      host: "admin.${NAME}.${HOST}"
-      path: /
+      host: "admin-${NAME}-${HOST}"
       to:
         kind: Service
         name: "${NAME}"
@@ -118,7 +118,7 @@ objects:
                 - name: POSTGRESQL_WALLET_HOST
                   value: ${NAME}-wallet
                 - name: POSTGRESQL_WALLET_PORT
-                  value: ${POSTGRESQL_WALLET_PORT}
+                  value: ${POSTGRES_WALLET_PORT}
                 - name: WALLET_STORAGE_CONFIGURATION
                   value: '{\"url\":\"${POSTGRESQL_WALLET_HOST}:${POSTGRESQL_WALLET_PORT}\",\"max_connections\":5}'
                 - name: WALLET_STORAGE_CREDENTIALS
@@ -128,7 +128,7 @@ objects:
                 - name: POSTGRESQL_WALLET_PASSWORD
                   value: ${POSTGRES_WALLET_PASSWORD}
                 - name: POSTGRESQL_WALLET_ADMIN_PASSWORD
-                  value: ${POSTGRESQL_WALLET_ADMIN_PASSWORD}
+                  value: ${POSTGRES_WALLET_ADMIN_PASSWORD}
                 - name: WALLET_ENCRYPTION_KEY
                   value: ${WALLET_ENCRYPTION_KEY}
                 - name: INDY_WALLET_SEED
@@ -163,7 +163,7 @@ objects:
                   value: ""
                 - name: TRACE_LABEL
                   value: "'${HOSTNAME}'"
-              image: "image-registry.openshift-image-registry.svc:5000/av-images/aca-py-agent:latest"
+              image: "aca-py-agent:latest"
               ports:
                 - containerPort: ${{HTTP_INTERFACE_PORT}}
                   protocol: TCP
@@ -206,7 +206,7 @@ objects:
           imageChangeParams:
             automatic: true
             containerNames:
-              - aca-py-agent
+              - "${NAME}"
             from:
               kind: ImageStreamTag
               namespace: "${IMAGE_NAMESPACE}"
@@ -247,17 +247,17 @@ objects:
             - name: "${NAME}-wallet"
               image: "postgres:latest"
               ports:
-                - containerPort: ${{POSTGRESQL_WALLET_PORT}}
+                - containerPort: ${{POSTGRES_WALLET_PORT}}
                   protocol: TCP
               env:
                 - name: POSTGRESQL_USER
-                  value: ${POSTGRESQL_USER}
+                  value: ${POSTGRES_WALLET_USER}
                 - name: POSTGRESQL_PASSWORD
-                  value: ${POSTGRESQL_PASSWORD}
+                  value: ${POSTGRES_WALLET_PASSWORD}
                 - name: POSTGRESQL_ADMIN_PASSWORD
-                  value: ${POSTGRESQL_ADMIN_PASSWORD}
+                  value: ${POSTGRES_WALLET_ADMIN_PASSWORD}
                 - name: POSTGRESQL_DATABASE
-                  value: "wallet"
+                  value: unused
               resources:
                 requests:
                   cpu: "10m"
@@ -274,6 +274,26 @@ objects:
               securityContext:
                 capabilities: {}
                 privileged: false
+              livenessProbe:
+                exec:
+                  command:
+                  - pg_isready
+                  - -h
+                  - localhost
+                  - -U
+                  - postgres
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+              readinessProbe:
+                exec:
+                  command:
+                  - pg_isready
+                  - -h
+                  - localhost
+                  - -U
+                  - postgres
+                initialDelaySeconds: 5
+                timeoutSeconds: 1
           restartPolicy: Always
           terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
@@ -307,7 +327,7 @@ objects:
       ports:
         - protocol: TCP
           name: tcp
-          port: ${{POSTGRESQL_WALLET_PORT}}
+          port: ${{POSTGRES_WALLET_PORT}}
 parameters:
   - name: NAME
     displayName: Name
@@ -315,7 +335,7 @@ parameters:
     generate: expression
     from: "acapy[0-9]{6}"
   - name: HOST
-    value: "aviary.icu"
+    value: "-av1-agents.apps.avos.aviary.link"
   - name: IMAGE_NAMESPACE
     value: av-images
   - name: HTTP_INTERFACE_PORT
@@ -329,17 +349,17 @@ parameters:
     description: The encryption key to be used for the wallets.  Needs to be basee64 encoded.
     required: true
     generate: expression
-    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
-  - name: POSTGRESQL_WALLET_PORT
+    from: "[a-zA-Z0-9]{16}"
+  - name: POSTGRES_WALLET_PORT
     value: "5432"
-  - name: POSTGRESQL_WALLET_USER
+  - name: POSTGRES_WALLET_USER
     value: "wallet-user"
-  - name: POSTGRESQL_WALLET_PASSWORD
+  - name: POSTGRES_WALLET_PASSWORD
     displayName: postgres password
     required: true
     generate: expression
     from: "[a-zA-Z0-9]{16}"
-  - name: POSTGRESQL_WALLET_ADMIN_PASSWORD
+  - name: POSTGRES_WALLET_ADMIN_PASSWORD
     displayName: postgres admin password
     required: true
     generate: expression
@@ -349,16 +369,16 @@ parameters:
     description: The Seed used for the indy wallet.  Needs to be basee64 encoded.
     required: true
     generate: expression
-    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+    from: "[a-zA-Z0-9]{32}"
   - name: WALLET_DID
     displayName: Indy Wallet DID
     description: The DID associated to the indy wallet.  Needs to be basee64 encoded.
     required: false
     generate: expression
-    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+    from: "[a-zA-Z0-9]{16}"
   - name: WEBHOOK_URL
     value: ""
   - name: AGENT_ADMIN_API_KEY
     required: true
     generate: expression
-    from: "[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]{16}"
+    from: "[a-zA-Z0-9]{16}"
