@@ -8,8 +8,7 @@ metadata:
     description: Template for aries-cloudagent-python
     tags: aca-py
 message: |-
-  The following service(s) have been created in your project: ${NAME}.
-  For more information about using this template, including OpenShift considerations, see https://github.com/sclorg/nginx-ex/blob/master/README.md.
+  An aca-py agent has been deployed with the name ${NAME}
 labels:
   template: aca-py
 objects:
@@ -19,6 +18,7 @@ objects:
       name: "${NAME}"
       labels:
         app: aca-py
+        template: aca-py
     spec:
       selector:
         name: "${NAME}"
@@ -35,6 +35,7 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-http"
+      template: aca-py
     spec:
       host: "${NAME}-${HOST}"
       to:
@@ -48,6 +49,7 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-admin"
+      template: aca-py
     spec:
       host: "admin-${NAME}-${HOST}"
       to:
@@ -61,6 +63,7 @@ objects:
       name: "${NAME}"
       labels:
         name: aca-py
+        template: aca-py
     spec:
       replicas: 1
       selector:
@@ -146,9 +149,9 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: ${NAME}.${HOST}
+                  value: ${NAME}-${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
-                  value: admin.${NAME}.${HOST}
+                  value: admin-${NAME}-${HOST}
                 - name: AGENT_LOG_LEVEL
                   value: WARNING
                 - name: TIMING
@@ -215,6 +218,7 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-wallet"
+      template: aca-py
     spec:
       storageClassName: aws-efs
       accessModes:
@@ -226,6 +230,7 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-wallet"
+      template: aca-py
     spec:
       replicas: 1
       test: false
@@ -319,6 +324,7 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-wallet"
+      template: aca-py
       labels:
         app: aca-py
     spec:
@@ -335,7 +341,7 @@ parameters:
     generate: expression
     from: "acapy[0-9]{6}"
   - name: HOST
-    value: "-av1-agents.apps.avos.aviary.link"
+    value: "av1-agents.apps.avos.aviary.link"
   - name: IMAGE_NAMESPACE
     value: av-images
   - name: HTTP_INTERFACE_PORT
