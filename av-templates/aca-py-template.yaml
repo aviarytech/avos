@@ -108,6 +108,7 @@ objects:
                   $([ ! -z "${AGENT_ADMIN_API_KEY}" ] && echo "--admin-api-key ${AGENT_ADMIN_API_KEY}" || echo "--admin-insecure-mode")
                   --label "${NAME}"
                   --log-level warning
+                  --public-invites
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
                   --plugin indy_catalyst_issuer_registration
@@ -149,9 +150,9 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: ${NAME}-${HOST}
+                  value: http://${NAME}-${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
-                  value: admin-${NAME}-${HOST}
+                  value: http://admin-${NAME}-${HOST}
                 - name: AGENT_LOG_LEVEL
                   value: WARNING
                 - name: TIMING
@@ -218,7 +219,9 @@ objects:
     apiVersion: v1
     metadata:
       name: "${NAME}-db"
-      template: aca-py
+      labels:
+        app: aca-py
+        template: aca-py
     spec:
       storageClassName: aws-efs
       accessModes:
@@ -353,8 +356,6 @@ parameters:
   - name: NAME
     displayName: Name
     required: true
-    generate: expression
-    from: "acapy[0-9]{6}"
   - name: HOST
     value: "av1-agents.apps.avos.aviary.link"
   - name: IMAGE_NAMESPACE
@@ -374,12 +375,13 @@ parameters:
   - name: POSTGRES_PORT
     value: "5432"
   - name: POSTGRES_USER
-    value: "db-user"
+    value: "db_user"
   - name: POSTGRES_PASSWORD
     displayName: postgres password
     required: true
-    generate: expression
-    from: "[a-zA-Z0-9]{16}"
+    value: "postgres_password"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{16}"
   - name: POSTGRES_ADMIN_PASSWORD
     displayName: postgres admin password
     required: true
@@ -398,11 +400,12 @@ parameters:
     displayName: Indy Wallet DID
     description: The DID associated to the indy wallet.  Needs to be basee64 encoded.
     required: false
-    generate: expression
-    from: "[a-zA-Z0-9]{16}"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{16}"
   - name: WEBHOOK_URL
     value: ""
   - name: AGENT_ADMIN_API_KEY
     required: true
-    generate: expression
-    from: "[a-zA-Z0-9]{16}"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{16}"
+    value: "api-key"
