@@ -96,6 +96,8 @@ objects:
                   --auto-ping-connection
                   --auto-respond-messages
                   --auto-respond-credential-offer
+                  --auto-respond-credential-proposal
+                  --auto-store-credential
                   --auto-verify-presentation
                   --wallet-type 'indy'
                   --wallet-name "wallet"
@@ -107,7 +109,7 @@ objects:
                   --admin '0.0.0.0' ${ADMIN_INTERFACE_PORT}
                   $([ ! -z "${AGENT_ADMIN_API_KEY}" ] && echo "--admin-api-key ${AGENT_ADMIN_API_KEY}" || echo "--admin-insecure-mode")
                   --label "${NAME}"
-                  --log-level warning
+                  --log-level "${AGENT_LOG_LEVEL}"
                   --public-invites
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}

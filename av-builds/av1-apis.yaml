@@ -1,14 +1,16 @@
 kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
-  name: "aca-py-agent"
+  name: "av1-apis"
 spec:
   runPolicy: "Serial"
   source:
     type: Git
     git:
-      uri: "https://github.com/bcgov/aries-vcr"
-    contextDir: docker/vcr-agent
+      uri: "git@github.com:aviarytech/av1-apis.git"
+    sourceSecret:
+      name: "av1-apis-deploy-key"
+      namespace: av1
   strategy:
     type: Docker
     dockerStrategy:
@@ -17,4 +19,4 @@ spec:
     to:
       kind: "ImageStreamTag"
       namespace: "av-images"
-      name: "aca-py-agent:latest"
+      name: "av1-apis:latest"
