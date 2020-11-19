@@ -142,7 +142,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: ${WEBHOOK_URL}
+                  value: "http://av1-api-${NAME}-${HOST}/av1/did/sov/callbacks"
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -236,6 +236,8 @@ objects:
     metadata:
       name: "${NAME}-db"
       template: aca-py
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
     spec:
       replicas: 1
       test: false
@@ -353,7 +355,109 @@ objects:
         name: "${NAME}-db"
       port:
         targetPort: tcp
-
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: "av1-api-${NAME}"
+      template: aca-py
+    spec:
+      replicas: 1
+      test: false
+      selector:
+        name: "av1-api-${NAME}"
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "true"
+          labels:
+            app: aca-py
+            name: "av1-api-${NAME}"
+        spec:
+          containers:
+            - name: "av1-api-${NAME}"
+              image: "av1-apis:latest"
+              ports:
+                - containerPort: ${{API_PORT}}
+                  protocol: TCP
+              env:
+                - name: AGENT_URL
+                  value: http://admin-${NAME}-${HOST}
+                - name: API_KEY
+                  value: ${AGENT_ADMIN_API_KEY}
+                - name: PGHOST
+                  value: ${NAME}-db
+                - name: PGUSER
+                  value: ${POSTGRES_USER}
+                - name: PGPASSWORD
+                  value: ${POSTGRES_PASSWORD}
+                - name: PGDATABASE
+                  value: av1_apis
+                - name: PGDPORT
+                  value: ${POSTGRES_PORT}
+                - name: SERVER_PORT
+                  value: ${API_PORT}
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "10Mi"
+                limits:
+                  cpu: "2000m"
+                  memory: "6000Mi"
+              terminationMessagePath: "/dev/termination-log"
+              terminationMessagePolicy: File
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities: {}
+                privileged: false
+          restartPolicy: Always
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - "av1-api-${NAME}"
+            from:
+              kind: ImageStreamTag
+              namespace: av-images
+              name: av1-apis:latest
+      strategy:
+        type: Recreate
+        recreateParams:
+          timeoutSeconds: 600
+        activeDeadlineSeconds: 21600
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: "av1-api-${NAME}"
+      template: aca-py
+      labels:
+        app: aca-py
+    spec:
+      selector:
+        name: "av1-api-${NAME}"
+      ports:
+        - protocol: TCP
+          name: tcp
+          port: ${{API_PORT}}
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "av1-api-${NAME}"
+      template: aca-py
+      labels:
+        app: aca-py
+    spec:
+      host: "av1-api-${NAME}-${HOST}"
+      to:
+        kind: Service
+        name: "av1-api-${NAME}"
+      port:
+        targetPort: tcp
 parameters:
   - name: NAME
     displayName: Name
@@ -396,18 +500,18 @@ parameters:
     displayName: Indy Wallet Seed
     description: The Seed used for the indy wallet.  Needs to be basee64 encoded.
     required: true
-    generate: expression
-    from: "[a-zA-Z0-9]{32}"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{32}"
   - name: WALLET_DID
     displayName: Indy Wallet DID
     description: The DID associated to the indy wallet.  Needs to be basee64 encoded.
     required: false
     # generate: expression
     # from: "[a-zA-Z0-9]{16}"
-  - name: WEBHOOK_URL
-    value: ""
   - name: AGENT_ADMIN_API_KEY
     required: true
     # generate: expression
     # from: "[a-zA-Z0-9]{16}"
     value: "api-key"
+  - name: API_PORT
+    value: "8080"

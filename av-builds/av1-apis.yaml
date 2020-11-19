@@ -12,9 +12,12 @@ spec:
       name: "av1-apis-deploy-key"
       namespace: av1
   strategy:
-    type: Docker
-    dockerStrategy:
-      dockerfilePath: Dockerfile
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: "av-images"
+        name: centos/nodejs-12-centos7:latest
   output:
     to:
       kind: "ImageStreamTag"
