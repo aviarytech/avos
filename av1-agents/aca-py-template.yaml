@@ -111,6 +111,7 @@ objects:
                   --label "${NAME}"
                   --log-level "${AGENT_LOG_LEVEL}"
                   --public-invites
+                  --monitor-ping
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
                   --plugin indy_catalyst_issuer_registration

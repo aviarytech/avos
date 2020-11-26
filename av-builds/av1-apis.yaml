@@ -4,6 +4,11 @@ metadata:
   name: "av1-apis"
 spec:
   runPolicy: "Serial"
+  triggers:
+    - type: "GitHub"
+      github:
+        secretReference:
+          name: "github-webhook-secret"
   source:
     type: Git
     git:
@@ -17,7 +22,7 @@ spec:
       from:
         kind: ImageStreamTag
         namespace: "av-images"
-        name: centos/nodejs-12-centos7:latest
+        name: node:latest
   output:
     to:
       kind: "ImageStreamTag"
