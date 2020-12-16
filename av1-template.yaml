@@ -12,16 +12,144 @@ message: |-
 labels:
   template: aca-py
 objects:
+  ## Agent DB
+  - kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-agent-db"
+      labels:
+        app: aca-py
+        template: aca-py
+    spec:
+      storageClassName: aws-efs
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-agent-db"
+      template: aca-py
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+    spec:
+      replicas: 1
+      test: false
+      selector:
+        name: "${NAME}-agent-db"
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "true"
+          labels:
+            app: aca-py
+            name: "${NAME}-agent-db"
+        spec:
+          volumes:
+            - name: "${NAME}-agent-db-data"
+              persistentVolumeClaim:
+                claimName: "${NAME}-agent-db"
+          containers:
+            - name: "${NAME}-agent-db"
+              image: "postgres:latest"
+              ports:
+                - containerPort: ${{POSTGRES_PORT}}
+                  protocol: TCP
+              env:
+                - name: POSTGRESQL_USER
+                  value: ${POSTGRES_USER}
+                - name: POSTGRESQL_PASSWORD
+                  value: ${POSTGRES_PASSWORD}
+                - name: POSTGRESQL_ADMIN_PASSWORD
+                  value: ${POSTGRES_ADMIN_PASSWORD}
+                - name: POSTGRESQL_DATABASE
+                  value: ${POSTGRES_DB_NAME}
+                - name: PGCTLTIMEOUT
+                  value: "300"
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "10Mi"
+                limits:
+                  cpu: "2000m"
+                  memory: "6000Mi"
+              volumeMounts:
+                - name: "${NAME}-agent-db-data"
+                  mountPath: "/var/lib/pgsql/data"
+              terminationMessagePath: "/dev/termination-log"
+              terminationMessagePolicy: File
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities: {}
+                privileged: false
+              livenessProbe:
+                exec:
+                  command:
+                  - pg_isready
+                  - -h
+                  - localhost
+                  - -U
+                  - postgres
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+              readinessProbe:
+                exec:
+                  command:
+                  - pg_isready
+                  - -h
+                  - localhost
+                  - -U
+                  - postgres
+                initialDelaySeconds: 5
+                timeoutSeconds: 1
+          restartPolicy: Always
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - "${NAME}-agent-db"
+            from:
+              kind: ImageStreamTag
+              namespace: "${IMAGE_NAMESPACE}"
+              name: postgres:latest
+      strategy:
+        type: Recreate
+        recreateParams:
+          timeoutSeconds: 600
+        activeDeadlineSeconds: 21600
   - kind: Service
     apiVersion: v1
     metadata:
-      name: "${NAME}"
+      name: "${NAME}-agent-db"
+      template: aca-py
+      labels:
+        app: aca-py
+    spec:
+      selector:
+        name: "${NAME}-agent-db"
+      ports:
+        - protocol: TCP
+          name: tcp
+          port: ${{POSTGRES_PORT}}
+  ## Agent
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-agent"
       labels:
         app: aca-py
         template: aca-py
     spec:
       selector:
-        name: "${NAME}"
+        name: "${NAME}-agent"
       ports:
         - protocol: TCP
           name: http
@@ -40,7 +168,7 @@ objects:
       host: "${NAME}-${HOST}"
       to:
         kind: Service
-        name: "${NAME}"
+        name: "${NAME}-agent"
         weight: 100
       port:
         targetPort: http
@@ -54,33 +182,33 @@ objects:
       host: "admin-${NAME}-${HOST}"
       to:
         kind: Service
-        name: "${NAME}"
+        name: "${NAME}-agent"
       port:
         targetPort: http-admin
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
-      name: "${NAME}"
+      name: "${NAME}-agent"
       labels:
         name: aca-py
         template: aca-py
     spec:
       replicas: 1
       selector:
-        name: "${NAME}"
+        name: "${NAME}-agent"
       strategy:
         type: Rolling
       template:
         metadata:
           annotations:
             sidecar.istio.io/inject: "true"
-          name: "${NAME}"
+          name: "${NAME}-agent"
           labels:
             app: aca-py
-            name: "${NAME}"
+            name: "${NAME}-agent"
         spec:
           containers:
-            - name: "${NAME}"
+            - name: "${NAME}-agent"
               command:
                 - bash
                 - -c
@@ -123,7 +251,7 @@ objects:
                 - name: LEDGER_URL
                   value: http://dev.bcovrin.vonx.io
                 - name: POSTGRESQL_WALLET_HOST
-                  value: ${NAME}-db
+                  value: ${NAME}-agent-db
                 - name: POSTGRESQL_WALLET_PORT
                   value: ${POSTGRES_PORT}
                 - name: WALLET_STORAGE_CONFIGURATION
@@ -143,7 +271,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: "http://av1-api-${NAME}-${HOST}/av1/did/sov/callbacks"
+                  value: "http://av1-api-${NAME}-${HOST}/av1/callbacks"
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -213,15 +341,16 @@ objects:
           imageChangeParams:
             automatic: true
             containerNames:
-              - "${NAME}"
+              - "${NAME}-agent"
             from:
               kind: ImageStreamTag
               namespace: "${IMAGE_NAMESPACE}"
               name: aca-py-agent:latest
+  ## AV1 API DB
   - kind: PersistentVolumeClaim
     apiVersion: v1
     metadata:
-      name: "${NAME}-db"
+      name: "${NAME}-api-db"
       labels:
         app: aca-py
         template: aca-py
@@ -231,11 +360,11 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi
+          storage: 2Gi
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
-      name: "${NAME}-db"
+      name: "${NAME}-api-db"
       template: aca-py
       annotations:
         template.alpha.openshift.io/wait-for-ready: "true"
@@ -243,34 +372,34 @@ objects:
       replicas: 1
       test: false
       selector:
-        name: "${NAME}-db"
+        name: "${NAME}-api-db"
       template:
         metadata:
           annotations:
             sidecar.istio.io/inject: "true"
           labels:
             app: aca-py
-            name: "${NAME}-db"
+            name: "${NAME}-api-db"
         spec:
           volumes:
-            - name: "${NAME}-db-data"
+            - name: "${NAME}-api-db-data"
               persistentVolumeClaim:
-                claimName: "${NAME}-db"
+                claimName: "${NAME}-api-db"
           containers:
-            - name: "${NAME}-db"
-              image: "postgres:latest"
+            - name: "${NAME}-api-db"
+              image: "mongo:latest"
               ports:
-                - containerPort: ${{POSTGRES_PORT}}
+                - containerPort: ${{MONGO_PORT}}
                   protocol: TCP
               env:
-                - name: POSTGRESQL_USER
-                  value: ${POSTGRES_USER}
-                - name: POSTGRESQL_PASSWORD
-                  value: ${POSTGRES_PASSWORD}
-                - name: POSTGRESQL_ADMIN_PASSWORD
-                  value: ${POSTGRES_ADMIN_PASSWORD}
-                - name: POSTGRESQL_DATABASE
-                  value: ${POSTGRES_DB_NAME}
+                - name: MONGODB_USER
+                  value: ${MONGO_USER}
+                - name: MONGODB_PASSWORD
+                  value: ${MONGO_PASSWORD}
+                - name: MONGODB_ADMIN_PASSWORD
+                  value: ${MONGO_ADMIN_PASSWORD}
+                - name: MONGODB_DATABASE
+                  value: ${MONGO_DATABASE}
               resources:
                 requests:
                   cpu: "10m"
@@ -279,34 +408,34 @@ objects:
                   cpu: "2000m"
                   memory: "6000Mi"
               volumeMounts:
-                - name: "${NAME}-db-data"
-                  mountPath: "/var/lib/pgsql/data"
+                - name: "${NAME}-api-db-data"
+                  mountPath: "/var/lib/mongodb/data"
               terminationMessagePath: "/dev/termination-log"
               terminationMessagePolicy: File
               imagePullPolicy: IfNotPresent
               securityContext:
                 capabilities: {}
                 privileged: false
-              livenessProbe:
-                exec:
-                  command:
-                  - pg_isready
-                  - -h
-                  - localhost
-                  - -U
-                  - postgres
-                initialDelaySeconds: 30
-                timeoutSeconds: 5
-              readinessProbe:
-                exec:
-                  command:
-                  - pg_isready
-                  - -h
-                  - localhost
-                  - -U
-                  - postgres
-                initialDelaySeconds: 5
-                timeoutSeconds: 1
+              # livenessProbe:
+              #   exec:
+              #     command:
+              #     - pg_isready
+              #     - -h
+              #     - localhost
+              #     - -U
+              #     - postgres
+              #   initialDelaySeconds: 30
+              #   timeoutSeconds: 5
+              # readinessProbe:
+              #   exec:
+              #     command:
+              #     - pg_isready
+              #     - -h
+              #     - localhost
+              #     - -U
+              #     - postgres
+              #   initialDelaySeconds: 5
+              #   timeoutSeconds: 1
           restartPolicy: Always
           terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
@@ -318,11 +447,11 @@ objects:
           imageChangeParams:
             automatic: true
             containerNames:
-              - "${NAME}-db"
+              - "${NAME}-api-db"
             from:
               kind: ImageStreamTag
               namespace: "${IMAGE_NAMESPACE}"
-              name: postgres:latest
+              name: mongo:latest
       strategy:
         type: Recreate
         recreateParams:
@@ -331,51 +460,38 @@ objects:
   - kind: Service
     apiVersion: v1
     metadata:
-      name: "${NAME}-db"
+      name: "${NAME}-api-db"
       template: aca-py
       labels:
         app: aca-py
     spec:
       selector:
-        name: "${NAME}-db"
+        name: "${NAME}-api-db"
       ports:
         - protocol: TCP
           name: tcp
-          port: ${{POSTGRES_PORT}}
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: "${NAME}-db"
-      template: aca-py
-      labels:
-        app: aca-py
-    spec:
-      host: "db-${NAME}-${HOST}"
-      to:
-        kind: Service
-        name: "${NAME}-db"
-      port:
-        targetPort: tcp
+          port: ${{MONGO_PORT}}
+  ## AV1 API Controller
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
-      name: "av1-api-${NAME}"
+      name: "${NAME}-av1-api"
       template: aca-py
     spec:
       replicas: 1
       test: false
       selector:
-        name: "av1-api-${NAME}"
+        name: "${NAME}-av1-api"
       template:
         metadata:
           annotations:
             sidecar.istio.io/inject: "true"
           labels:
             app: aca-py
-            name: "av1-api-${NAME}"
+            name: "${NAME}-av1-api"
         spec:
           containers:
-            - name: "av1-api-${NAME}"
+            - name: "${NAME}-av1-api"
               image: "av1-apis:latest"
               ports:
                 - containerPort: ${{API_PORT}}
@@ -385,16 +501,18 @@ objects:
                   value: http://admin-${NAME}-${HOST}
                 - name: API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
-                - name: PGHOST
-                  value: ${NAME}-db
-                - name: PGUSER
-                  value: ${POSTGRES_USER}
-                - name: PGPASSWORD
-                  value: ${POSTGRES_PASSWORD}
-                - name: PGDATABASE
-                  value: av1_apis
-                - name: PGDPORT
-                  value: ${POSTGRES_PORT}
+                - name: DBHOST
+                  value: ${NAME}-api-db
+                - name: DBUSER
+                  value: ${MONGO_USER}
+                - name: DBPASSWORD
+                  value: ${MONGO_PASSWORD}
+                - name: DBNAME
+                  value: ${MONGO_DATABASE}
+                - name: DBAUTHSOURCE
+                  value: ${MONGO_AUTH_SOURCE}
+                - name: DBPORT
+                  value: ${MONGO_PORT}
                 - name: SERVER_PORT
                   value: ${API_PORT}
               resources:
@@ -421,7 +539,7 @@ objects:
           imageChangeParams:
             automatic: true
             containerNames:
-              - "av1-api-${NAME}"
+              - "${NAME}-av1-api"
             from:
               kind: ImageStreamTag
               namespace: av-images
@@ -434,13 +552,13 @@ objects:
   - kind: Service
     apiVersion: v1
     metadata:
-      name: "av1-api-${NAME}"
+      name: "${NAME}-av1-api"
       template: aca-py
       labels:
         app: aca-py
     spec:
       selector:
-        name: "av1-api-${NAME}"
+        name: "${NAME}-av1-api"
       ports:
         - protocol: TCP
           name: tcp
@@ -448,7 +566,7 @@ objects:
   - kind: Route
     apiVersion: v1
     metadata:
-      name: "av1-api-${NAME}"
+      name: "${NAME}-av1-api"
       template: aca-py
       labels:
         app: aca-py
@@ -456,7 +574,7 @@ objects:
       host: "av1-api-${NAME}-${HOST}"
       to:
         kind: Service
-        name: "av1-api-${NAME}"
+        name: "${NAME}-av1-api"
       port:
         targetPort: tcp
 parameters:
@@ -479,6 +597,30 @@ parameters:
     required: true
     generate: expression
     from: "[a-zA-Z0-9]{16}"
+  - name: MONGO_PORT
+    value: "27017"
+  - name: MONGO_USER
+    value: "dbUserMongo"
+  - name: MONGO_PASSWORD
+    displayName: mongo password
+    required: true
+    value: "monGOD"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{16}"
+  - name: MONGO_AUTH_SOURCE
+    displayName: mongo auth source
+    required: true
+    value: "av1_api"
+    # generate: expression
+    # from: "[a-zA-Z0-9]{16}"
+  - name: MONGO_ADMIN_PASSWORD
+    displayName: mongo admin password
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9]{16}"
+  - name: MONGO_DATABASE
+    required: true
+    value: "av1_api"
   - name: POSTGRES_PORT
     value: "5432"
   - name: POSTGRES_USER
@@ -496,7 +638,7 @@ parameters:
     from: "[a-zA-Z0-9]{16}"
   - name: POSTGRES_DB_NAME
     required: true
-    value: "av1_apis"
+    value: "av1_unused"
   - name: INDY_WALLET_SEED
     displayName: Indy Wallet Seed
     description: The Seed used for the indy wallet.  Needs to be basee64 encoded.

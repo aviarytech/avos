@@ -7,12 +7,11 @@ spec:
   source:
     type: Git
     git:
-      uri: "https://github.com/bcgov/aries-vcr"
-    contextDir: docker/vcr-agent
+      uri: "https://github.com/brianorwhatever/aries-cloudagent-python"
   strategy:
     type: Docker
     dockerStrategy:
-      dockerfilePath: Dockerfile
+      dockerfilePath: docker/Dockerfile.run
   output:
     to:
       kind: "ImageStreamTag"
