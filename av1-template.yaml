@@ -87,21 +87,21 @@ objects:
               livenessProbe:
                 exec:
                   command:
-                  - pg_isready
-                  - -h
-                  - localhost
-                  - -U
-                  - postgres
+                    - pg_isready
+                    - -h
+                    - localhost
+                    - -U
+                    - postgres
                 initialDelaySeconds: 30
                 timeoutSeconds: 5
               readinessProbe:
                 exec:
                   command:
-                  - pg_isready
-                  - -h
-                  - localhost
-                  - -U
-                  - postgres
+                    - pg_isready
+                    - -h
+                    - localhost
+                    - -U
+                    - postgres
                 initialDelaySeconds: 5
                 timeoutSeconds: 1
           restartPolicy: Always
@@ -159,6 +159,10 @@ objects:
           name: http-admin
           port: ${{ADMIN_INTERFACE_PORT}}
           targetPort: ${{ADMIN_INTERFACE_PORT}}
+        - protocol: TCP
+          name: websockets
+          port: ${{WS_INTERFACE_PORT}}
+          targetPort: ${{WS_INTERFACE_PORT}}
   - kind: Route
     apiVersion: v1
     metadata:
