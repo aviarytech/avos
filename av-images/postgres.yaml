@@ -9,4 +9,4 @@ spec:
     - name: latest
       from:
         kind: DockerImage
-        name: registry.access.redhat.com/rhscl/postgresql-10-rhel7:latest
+        name: registry.redhat.io/rhel8/postgresql-12:latest
