@@ -94,6 +94,8 @@ objects:
                     - postgres
                 initialDelaySeconds: 30
                 timeoutSeconds: 5
+                periodSeconds: 20
+                failureThreshold: 15
               readinessProbe:
                 exec:
                   command:
@@ -102,8 +104,10 @@ objects:
                     - localhost
                     - -U
                     - postgres
-                initialDelaySeconds: 5
-                timeoutSeconds: 1
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+                periodSeconds: 20
+                failureThreshold: 15
           restartPolicy: Always
           terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
@@ -420,26 +424,26 @@ objects:
               securityContext:
                 capabilities: {}
                 privileged: false
-              # livenessProbe:
-              #   exec:
-              #     command:
-              #     - pg_isready
-              #     - -h
-              #     - localhost
-              #     - -U
-              #     - postgres
-              #   initialDelaySeconds: 30
-              #   timeoutSeconds: 5
-              # readinessProbe:
-              #   exec:
-              #     command:
-              #     - pg_isready
-              #     - -h
-              #     - localhost
-              #     - -U
-              #     - postgres
-              #   initialDelaySeconds: 5
-              #   timeoutSeconds: 1
+              livenessProbe:
+                exec:
+                  command:
+                    - mongo
+                    - --eval
+                    - db.adminCommand('ping')
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+                periodSeconds: 20
+                failureThreshold: 15
+              readinessProbe:
+                exec:
+                  command:
+                    - mongo
+                    - --eval
+                    - db.adminCommand('ping')
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+                periodSeconds: 20
+                failureThreshold: 15
           restartPolicy: Always
           terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
