@@ -7,7 +7,8 @@ spec:
   source:
     type: Git
     git:
-      uri: "https://github.com/brianorwhatever/aries-cloudagent-python"
+      uri: "https://github.com/dbluhm/aries-cloudagent-python"
+      ref: "toolbox-updating"
   strategy:
     type: Docker
     dockerStrategy:

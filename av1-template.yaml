@@ -251,6 +251,7 @@ objects:
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
                   --plugin indy_catalyst_issuer_registration
+                  --plugin acapy_plugin_toolbox
                   ${TRACING:+--trace}
                   ${TRACE_TARGET:+--trace-target ${TRACE_TARGET}}
                   ${TRACE_TAG:+--trace-tag ${TRACE_TAG}}
@@ -306,7 +307,7 @@ objects:
                   value: ""
                 - name: TRACE_LABEL
                   value: "'${HOSTNAME}'"
-              image: "aca-py-agent:latest"
+              image: "aca-py-agent-toolbox:latest"
               ports:
                 - containerPort: ${{HTTP_INTERFACE_PORT}}
                   protocol: TCP
@@ -353,7 +354,7 @@ objects:
             from:
               kind: ImageStreamTag
               namespace: "${IMAGE_NAMESPACE}"
-              name: aca-py-agent:latest
+              name: aca-py-agent-toolbox:latest
   ## AV1 API DB
   - kind: PersistentVolumeClaim
     apiVersion: v1
