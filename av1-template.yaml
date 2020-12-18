@@ -193,6 +193,18 @@ objects:
         name: "${NAME}-agent"
       port:
         targetPort: http-admin
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-ws"
+      template: aca-py
+    spec:
+      host: "ws-${NAME}-${HOST}"
+      to:
+        kind: Service
+        name: "${NAME}-agent"
+      port:
+        targetPort: websockets
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
