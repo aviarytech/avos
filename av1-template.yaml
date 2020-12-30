@@ -239,6 +239,7 @@ objects:
                   --outbound-transport ws
                   --outbound-transport http
                   --genesis-url "${LEDGER_URL}/genesis"
+                  --auto-provision
                   --auto-accept-invites
                   --auto-accept-requests
                   --auto-ping-connection
@@ -259,6 +260,9 @@ objects:
                   --label "${NAME}"
                   --log-level "${AGENT_LOG_LEVEL}"
                   --public-invites
+                  --connections-invite
+                  --invite-metadata-json "{\"group\":\"admin\"}"
+                  --invite-label "$AGENT_NAME (admin)"
                   --monitor-ping
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
@@ -269,6 +273,8 @@ objects:
                   ${TRACE_TAG:+--trace-tag ${TRACE_TAG}}
                   ${TRACE_LABEL:+--trace-label $(eval echo \"${TRACE_LABEL}\")});
               env:
+                - name: AGENT_NAME
+                  value: ${NAME}
                 - name: LEDGER_URL
                   value: http://dev.bcovrin.vonx.io
                 - name: POSTGRESQL_WALLET_HOST
