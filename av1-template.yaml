@@ -262,7 +262,7 @@ objects:
                   --public-invites
                   --connections-invite
                   --invite-metadata-json "{\"group\":\"admin\"}"
-                  --invite-label "$AGENT_NAME (admin)"
+                  --invite-label "admin"
                   --monitor-ping
                   ${TIMING:+--timing}
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
