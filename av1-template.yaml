@@ -312,7 +312,7 @@ objects:
                 - name: AGENT_ADMIN_ENDPOINT
                   value: http://admin-${NAME}-${HOST}
                 - name: AGENT_LOG_LEVEL
-                  value: WARNING
+                  value: INFO
                 - name: TIMING
                   value: ""
                 - name: READ_ONLY_LEDGER
