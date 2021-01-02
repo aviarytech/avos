@@ -308,7 +308,7 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: http://${NAME}-${HOST}
+                  value: http://ws-${NAME}-${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
                   value: http://admin-${NAME}-${HOST}
                 - name: AGENT_LOG_LEVEL
