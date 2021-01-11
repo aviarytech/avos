@@ -1,0 +1,27 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: "av1-web"
+spec:
+  runPolicy: "Serial"
+  triggers:
+    - type: "GitHub"
+      github:
+        secretReference:
+          name: "github-webhook-secret"
+  source:
+    type: Git
+    git:
+      uri: "git@github.com:aviarytech/av1-web.git"
+    sourceSecret:
+      name: "github-ssh-key"
+      namespace: av1-agents
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: "ImageStreamTag"
+      namespace: "av1-agents"
+      name: "av1-web:latest"
