@@ -1,0 +1,12 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: av1-web
+  namespace: av1-agents
+spec:
+  path: /
+  to:
+    kind: Service
+    name: av1-web
+  port:
+    targetPort: 8080
