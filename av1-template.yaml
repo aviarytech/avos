@@ -233,11 +233,9 @@ objects:
                 - bash
                 - -c
                 - $(echo aca-py start
-                  --inbound-transport http '0.0.0.0' ${HTTP_INTERFACE_PORT}
                   --inbound-transport ws '0.0.0.0' ${WS_INTERFACE_PORT}
                   --endpoint ${AGENT_ENDPOINT}
                   --outbound-transport ws
-                  --outbound-transport http
                   --genesis-url "${LEDGER_URL}/genesis"
                   --auto-provision
                   --auto-accept-invites
@@ -268,6 +266,7 @@ objects:
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
                   --plugin indy_catalyst_issuer_registration
                   --plugin acapy_plugin_toolbox
+                  --webhook-url ${WEBHOOK_URL}
                   ${TRACING:+--trace}
                   ${TRACE_TARGET:+--trace-target ${TRACE_TARGET}}
                   ${TRACE_TAG:+--trace-tag ${TRACE_TAG}}
@@ -298,7 +297,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: "http://av1-api-${NAME}-${HOST}/av1/callbacks"
+                  value: "${WEBHOOK_URL}"
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -308,7 +307,7 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: http://ws-${NAME}-${HOST}
+                  value: ws://ws-${NAME}-${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
                   value: http://admin-${NAME}-${HOST}
                 - name: AGENT_LOG_LEVEL
@@ -618,6 +617,7 @@ parameters:
     value: "8001"
   - name: WS_INTERFACE_PORT
     value: "8002"
+  - name: WEBHOOK_URL
   - name: WALLET_ENCRYPTION_KEY
     displayName: Wallet Encryption Key
     description: The encryption key to be used for the wallets.  Needs to be basee64 encoded.

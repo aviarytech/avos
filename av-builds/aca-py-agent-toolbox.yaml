@@ -6,7 +6,7 @@ spec:
   runPolicy: "Serial"
   source:
     type: Docker
-    dockerfile: "FROM image-registry.openshift-image-registry.svc:5000/av-images/aca-py-agent:latest\nRUN pip3 install --no-cache-dir -e 'git+https://github.com/dbluhm/aries-acapy-plugin-toolbox.git@update/aca-py-0.6.0rc0#egg=aries-acapy-plugin-toolbox'"
+    dockerfile: "FROM image-registry.openshift-image-registry.svc:5000/av-images/aca-py-agent:latest\nRUN pip3 install --no-cache-dir -e 'git+https://github.com/hyperledger/aries-acapy-plugin-toolbox.git@master#egg=acapy_plugin_toolbox'"
   strategy:
     type: Docker
   output:
