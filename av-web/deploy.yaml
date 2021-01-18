@@ -1,0 +1,31 @@
+kind: DeploymentConfig
+apiVersion: v1
+metadata:
+  name: av1-web
+spec:
+  template:
+    metadata:
+      labels:
+        name: av1-web
+    spec:
+      containers:
+        - name: av1-web
+          image: av1-web
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+  replicas: 1
+  selector:
+    name: av1-web
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - av1-web
+        from:
+          kind: ImageStreamTag
+          name: av1-web:latest
+  strategy:
+    type: Rolling
