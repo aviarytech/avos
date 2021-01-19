@@ -12,6 +12,65 @@ message: |-
 labels:
   template: aca-py
 objects:
+  ## Web
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: ${NAME}-web
+    spec:
+      template:
+        metadata:
+          labels:
+            name: ${NAME}-web
+        spec:
+          containers:
+            - name: "${NAME}-web"
+              image: av1-web:latest
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+              env:
+                - name: VUE_APP_AV1_URL
+                  value: http://av1-api-${NAME}-${HOST}
+      replicas: 1
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${NAME}-web
+            from:
+              kind: ImageStreamTag
+              name: av1-web:latest
+      strategy:
+        type: Rolling
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: ${NAME}-web
+      namespace: av1-agents
+    spec:
+      selector:
+        name: ${NAME}-web
+      ports:
+        - protocol: TCP
+          port: 8080
+          targetPort: 8080
+  - kind: Route
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: ${NAME}-web
+      namespace: av1-agents
+    spec:
+      path: /
+      host: ${WEBHOST}
+      to:
+        kind: Service
+        name: ${NAME}-web
+      port:
+        targetPort: 8080
+
   ## Agent DB
   - kind: PersistentVolumeClaim
     apiVersion: v1
@@ -266,7 +325,6 @@ objects:
                   ${READ_ONLY_LEDGER:+--read-only-ledger}
                   --plugin indy_catalyst_issuer_registration
                   --plugin acapy_plugin_toolbox
-                  --webhook-url ${WEBHOOK_URL}
                   ${TRACING:+--trace}
                   ${TRACE_TARGET:+--trace-target ${TRACE_TARGET}}
                   ${TRACE_TAG:+--trace-tag ${TRACE_TAG}}
@@ -297,7 +355,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: "${WEBHOOK_URL}"
+                  value: "http://av1-api-${NAME}-${HOST}/av1/callbacks"
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -615,6 +673,7 @@ parameters:
     value: "8000"
   - name: ADMIN_INTERFACE_PORT
     value: "8001"
+  - name: WEBHOST
   - name: WS_INTERFACE_PORT
     value: "8002"
   - name: WEBHOOK_URL
