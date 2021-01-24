@@ -1,0 +1,76 @@
+---
+kind: Template
+apiVersion: v1
+metadata:
+  name: av1
+  annotations:
+    openshift.io/display-name: Aries Cloud Agent Python Template
+    description: Template for aries-cloudagent-python
+    tags: av1
+message: |-
+  AV1 web has been deployed
+labels:
+  template: av1-web
+objects:
+  ## Web
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: ${NAME}-web
+    spec:
+      template:
+        metadata:
+          labels:
+            name: ${NAME}-web
+        spec:
+          containers:
+            - name: "${NAME}-web"
+              image: av1-web:latest
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+      replicas: 1
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${NAME}-web
+            from:
+              kind: ImageStreamTag
+              name: av1-web:latest
+      strategy:
+        type: Rolling
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: ${NAME}-web
+      namespace: av1-agents
+    spec:
+      selector:
+        name: ${NAME}-web
+      ports:
+        - protocol: TCP
+          port: 8080
+          targetPort: 8080
+  - kind: Route
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: ${NAME}-web
+      namespace: av1-agents
+    spec:
+      path: /
+      host: ${WEBHOST}
+      to:
+        kind: Service
+        name: ${NAME}-web
+      port:
+        targetPort: 8080
+parameters:
+  - name: NAME
+    displayName: Name
+    required: true
+  - name: HOST
+    value: "av1-agents.apps.avos.aviary.link"
+  - name: WEBHOST

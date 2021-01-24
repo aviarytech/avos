@@ -2,75 +2,21 @@
 kind: Template
 apiVersion: v1
 metadata:
-  name: aca-py
+  name: av1
   annotations:
-    openshift.io/display-name: Aries Cloud Agent Python Template
-    description: Template for aries-cloudagent-python
-    tags: aca-py
+    openshift.io/display-name: AV1 Template
+    description: Template for aviary one
+    tags: av1
 message: |-
-  An aca-py agent has been deployed with the name ${NAME}
+  Deployed with the name ${NAME}:
+  - web portal (deployment, service, route)
+  - av1 agent
+  - av1 agent db
+  - aca-py agent
+  - aca-py db
 labels:
-  template: aca-py
+  template: av1
 objects:
-  ## Web
-  - kind: DeploymentConfig
-    apiVersion: v1
-    metadata:
-      name: ${NAME}-web
-    spec:
-      template:
-        metadata:
-          labels:
-            name: ${NAME}-web
-        spec:
-          containers:
-            - name: "${NAME}-web"
-              image: av1-web:latest
-              ports:
-                - containerPort: 8080
-                  protocol: TCP
-              env:
-                - name: VUE_APP_AV1_URL
-                  value: http://av1-api-${NAME}-${HOST}
-      replicas: 1
-      triggers:
-        - type: ConfigChange
-        - type: ImageChange
-          imageChangeParams:
-            automatic: true
-            containerNames:
-              - ${NAME}-web
-            from:
-              kind: ImageStreamTag
-              name: av1-web:latest
-      strategy:
-        type: Rolling
-  - kind: Service
-    apiVersion: v1
-    metadata:
-      name: ${NAME}-web
-      namespace: av1-agents
-    spec:
-      selector:
-        name: ${NAME}-web
-      ports:
-        - protocol: TCP
-          port: 8080
-          targetPort: 8080
-  - kind: Route
-    apiVersion: route.openshift.io/v1
-    metadata:
-      name: ${NAME}-web
-      namespace: av1-agents
-    spec:
-      path: /
-      host: ${WEBHOST}
-      to:
-        kind: Service
-        name: ${NAME}-web
-      port:
-        targetPort: 8080
-
   ## Agent DB
   - kind: PersistentVolumeClaim
     apiVersion: v1
@@ -226,44 +172,6 @@ objects:
           name: websockets
           port: ${{WS_INTERFACE_PORT}}
           targetPort: ${{WS_INTERFACE_PORT}}
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: "${NAME}-http"
-      template: aca-py
-    spec:
-      host: "${NAME}-${HOST}"
-      to:
-        kind: Service
-        name: "${NAME}-agent"
-        weight: 100
-      port:
-        targetPort: http
-      wildcardPolicy: None
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: "${NAME}-admin"
-      template: aca-py
-    spec:
-      host: "admin-${NAME}-${HOST}"
-      to:
-        kind: Service
-        name: "${NAME}-agent"
-      port:
-        targetPort: http-admin
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: "${NAME}-ws"
-      template: aca-py
-    spec:
-      host: "ws-${NAME}-${HOST}"
-      to:
-        kind: Service
-        name: "${NAME}-agent"
-      port:
-        targetPort: websockets
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
@@ -355,7 +263,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: "http://av1-api-${NAME}-${HOST}/av1/callbacks"
+                  value: http://api.${host}
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -365,9 +273,9 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: ws://ws-${NAME}-${HOST}
+                  value: ws://agent.${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
-                  value: http://admin-${NAME}-${HOST}
+                  value: http://admin.${HOST}
                 - name: AGENT_LOG_LEVEL
                   value: INFO
                 - name: TIMING
@@ -375,13 +283,13 @@ objects:
                 - name: READ_ONLY_LEDGER
                   value: ""
                 - name: TRACING
-                  value: ""
+                  value: "True"
                 - name: TRACE_TARGET
                   value: ""
                 - name: TRACE_TAG
                   value: ""
                 - name: TRACE_LABEL
-                  value: "'${HOSTNAME}'"
+                  value: "'${HOST}'"
               image: "aca-py-agent-toolbox:latest"
               ports:
                 - containerPort: ${{HTTP_INTERFACE_PORT}}
@@ -582,7 +490,9 @@ objects:
                   protocol: TCP
               env:
                 - name: AGENT_URL
-                  value: http://admin-${NAME}-${HOST}
+                  value: ws://agent.${HOST}
+                - name: AGENT_URL
+                  value: https://admin-agent.${HOST}
                 - name: API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: DBHOST
@@ -647,6 +557,8 @@ objects:
         - protocol: TCP
           name: tcp
           port: ${{API_PORT}}
+
+  # ROUTES
   - kind: Route
     apiVersion: v1
     metadata:
@@ -655,18 +567,61 @@ objects:
       labels:
         app: aca-py
     spec:
-      host: "av1-api-${NAME}-${HOST}"
+      host: api.${HOST}
       to:
         kind: Service
         name: "${NAME}-av1-api"
       port:
         targetPort: tcp
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-agent-http"
+      template: aca-py
+    spec:
+      host: http.${HOST}
+      to:
+        kind: Service
+        name: "${NAME}-agent"
+        weight: 100
+      port:
+        targetPort: http
+      wildcardPolicy: None
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-admin"
+      template: aca-py
+    spec:
+      host: admin-agent.${HOST}
+      to:
+        kind: Service
+        name: "${NAME}-agent"
+      port:
+        targetPort: http-admin
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: "${NAME}-ws"
+      template: aca-py
+    spec:
+      host: agent.${HOST}
+      to:
+        kind: Service
+        name: "${NAME}-agent"
+      port:
+        targetPort: websockets
+
 parameters:
+  - name: NAMESPACE
+    value: av1
+  - name: WALLET_KEY
+    required: true
   - name: NAME
     displayName: Name
     required: true
   - name: HOST
-    value: "av1-agents.apps.avos.aviary.link"
+    required: true
   - name: IMAGE_NAMESPACE
     value: av-images
   - name: HTTP_INTERFACE_PORT
