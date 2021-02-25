@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nfs-troubleshoot
+  name: nfs-troubleshoot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: nfs-troubleshoot
+  template:
+    metadata:
+      labels:
+        name: nfs-troubleshoot
+    spec:
+      serviceAccountName: efs-provisioner
+      containers:
+      - image: centos:7
+        command:
+          - sh
+          - -c
+          - 'while true; do sleep 10; done'
+        imagePullPolicy: IfNotPresent
+        name: busybox
+        securityContext:
+          privileged: true

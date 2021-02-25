@@ -25,6 +25,7 @@ objects:
       labels:
         app: aca-py
         template: aca-py
+        destroy: true
     spec:
       storageClassName: aws-efs
       accessModes:
@@ -37,6 +38,7 @@ objects:
     metadata:
       name: "${NAME}-agent-db"
       template: aca-py
+      destroy: true
       annotations:
         template.alpha.openshift.io/wait-for-ready: "true"
     spec:
@@ -46,8 +48,6 @@ objects:
         name: "${NAME}-agent-db"
       template:
         metadata:
-          annotations:
-            sidecar.istio.io/inject: "true"
           labels:
             app: aca-py
             name: "${NAME}-agent-db"
@@ -179,6 +179,7 @@ objects:
       labels:
         name: aca-py
         template: aca-py
+        destroy: true
     spec:
       replicas: 1
       selector:
@@ -201,8 +202,10 @@ objects:
                 - -c
                 - $(echo aca-py start
                   --inbound-transport ws '0.0.0.0' ${WS_INTERFACE_PORT}
+                  --inbound-transport http '0.0.0.0' ${HTTP_INTERFACE_PORT}
                   --endpoint ${AGENT_ENDPOINT}
                   --outbound-transport ws
+                  --outbound-transport http
                   --genesis-url "${LEDGER_URL}/genesis"
                   --auto-provision
                   --auto-accept-invites
@@ -263,7 +266,7 @@ objects:
                 - name: WALLET_DID
                   value: ${WALLET_DID}
                 - name: WEBHOOK_URL
-                  value: http://api.${host}
+                  value: https://api.${HOST}/av1/callbacks
                 - name: HTTP_INTERFACE_PORT
                   value: ${HTTP_INTERFACE_PORT}
                 - name: WS_INTERFACE_PORT
@@ -273,9 +276,9 @@ objects:
                 - name: AGENT_ADMIN_API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
                 - name: AGENT_ENDPOINT
-                  value: ws://agent.${HOST}
+                  value: https://http.${HOST}
                 - name: AGENT_ADMIN_ENDPOINT
-                  value: http://admin.${HOST}
+                  value: https://admin-agent.${HOST}
                 - name: AGENT_LOG_LEVEL
                   value: INFO
                 - name: TIMING
@@ -346,6 +349,7 @@ objects:
       labels:
         app: aca-py
         template: aca-py
+        destroy: true
     spec:
       storageClassName: aws-efs
       accessModes:
@@ -358,6 +362,7 @@ objects:
     metadata:
       name: "${NAME}-api-db"
       template: aca-py
+      destroy: true
       annotations:
         template.alpha.openshift.io/wait-for-ready: "true"
     spec:
@@ -469,6 +474,7 @@ objects:
     metadata:
       name: "${NAME}-av1-api"
       template: aca-py
+      destroy: true
     spec:
       replicas: 1
       test: false
@@ -476,8 +482,6 @@ objects:
         name: "${NAME}-av1-api"
       template:
         metadata:
-          annotations:
-            sidecar.istio.io/inject: "true"
           labels:
             app: aca-py
             name: "${NAME}-av1-api"
@@ -490,8 +494,8 @@ objects:
                   protocol: TCP
               env:
                 - name: AGENT_URL
-                  value: ws://agent.${HOST}
-                - name: AGENT_URL
+                  value: agent.${HOST}
+                - name: AGENT_ADMIN_URL
                   value: https://admin-agent.${HOST}
                 - name: API_KEY
                   value: ${AGENT_ADMIN_API_KEY}
@@ -509,10 +513,12 @@ objects:
                   value: ${MONGO_PORT}
                 - name: SERVER_PORT
                   value: ${API_PORT}
+                - name: DOMAIN
+                  value: api.${HOST}
               resources:
                 requests:
-                  cpu: "10m"
-                  memory: "10Mi"
+                  cpu: "50m"
+                  memory: "50Mi"
                 limits:
                   cpu: "2000m"
                   memory: "6000Mi"
@@ -566,11 +572,16 @@ objects:
       template: aca-py
       labels:
         app: aca-py
+      annotations:
+        kubernetes.io/tls-acme: "true"
     spec:
       host: api.${HOST}
       to:
         kind: Service
         name: "${NAME}-av1-api"
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
       port:
         targetPort: tcp
   - kind: Route
@@ -578,12 +589,17 @@ objects:
     metadata:
       name: "${NAME}-agent-http"
       template: aca-py
+      annotations:
+        kubernetes.io/tls-acme: "true"
     spec:
       host: http.${HOST}
       to:
         kind: Service
         name: "${NAME}-agent"
         weight: 100
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
       port:
         targetPort: http
       wildcardPolicy: None
@@ -592,11 +608,16 @@ objects:
     metadata:
       name: "${NAME}-admin"
       template: aca-py
+      annotations:
+        kubernetes.io/tls-acme: "true"
     spec:
       host: admin-agent.${HOST}
       to:
         kind: Service
         name: "${NAME}-agent"
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
       port:
         targetPort: http-admin
   - kind: Route
@@ -604,11 +625,16 @@ objects:
     metadata:
       name: "${NAME}-ws"
       template: aca-py
+      annotations:
+        kubernetes.io/tls-acme: "true"
     spec:
       host: agent.${HOST}
       to:
         kind: Service
         name: "${NAME}-agent"
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
       port:
         targetPort: websockets
 
