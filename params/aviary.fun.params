@@ -1,5 +1,6 @@
-NAME=fun
+NAME=aviary-fun
 INDY_WALLET_SEED=AV1naAVx7B7W7SLus8DF4XotxFMHSFUN
 WALLET_DID=29tFr8JgFX4vQPsuhLFLNf
 WALLET_KEY=dTKvtaxdzkr5yeksC4ou6vMmDgo5Yz1gP3v6odpmJek
 HOST=aviary.fun
+COLOR="#db26e8"

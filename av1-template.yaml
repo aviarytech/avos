@@ -468,6 +468,7 @@ objects:
         - protocol: TCP
           name: tcp
           port: ${{MONGO_PORT}}
+
   ## AV1 API Controller
   - kind: DeploymentConfig
     apiVersion: v1
@@ -515,6 +516,10 @@ objects:
                   value: ${API_PORT}
                 - name: DOMAIN
                   value: api.${HOST}
+                - name: SEED
+                  value: ${HOST}
+                - name: COLOR
+                  value: ${COLOR}
               resources:
                 requests:
                   cpu: "50m"
@@ -648,6 +653,7 @@ parameters:
     required: true
   - name: HOST
     required: true
+  - name: COLOR
   - name: IMAGE_NAMESPACE
     value: av-images
   - name: HTTP_INTERFACE_PORT

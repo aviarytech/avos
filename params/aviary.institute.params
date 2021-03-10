@@ -1,5 +1,6 @@
-NAME=institute
+NAME=aviary-institute
 INDY_WALLET_SEED=AV1naAVx7B7W7SLus8DF4XoINSTITUTE
 WALLET_DID=PDkXXDcamouUsXTTKs1qEJ
 WALLET_KEY=D7QwfHwyjpV9WgxqGvSwPji7usrNfdgjzMjjPA9ooByt
 HOST=aviary.institute
+COLOR="#005085"
